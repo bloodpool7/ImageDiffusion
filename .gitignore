@@ -1,0 +1,17 @@
+# Env
+env/
+
+# Misc
+__pycache__/
+.DS_Store
+.claude/
+.python-version
+
+# Image Gen
+data/
+__pycache__/
+checkpoints/
+*.png
+test.ipynb
+wandb/
+logs/
