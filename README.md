@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/examples.jpeg" alt="Examples" width="200" height="auto">
+</p>
+
 # Image Diffusion - DDPM from Scratch
 
 A from-scratch implementation of **Denoising Diffusion Probabilistic Models (DDPM)** for high-quality image generation. This project demonstrates the complete pipeline from training to sampling, with support for both unconditional and class-conditional generation.
@@ -73,12 +77,7 @@ Once you have a trained model, use the `example.ipynb` notebook for easy samplin
 
 #### Using the Example Notebook
 
-1. **Open the notebook**:
-```bash
-jupyter notebook example.ipynb
-```
-
-2. **Basic Sampling**:
+1. **Basic Sampling**:
 ```python
 import utils
 import torch
