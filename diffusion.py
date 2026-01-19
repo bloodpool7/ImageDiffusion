@@ -189,6 +189,86 @@ class Image_Diffusion(nn.Module):
 
         return x_t
 
+    @torch.no_grad()
+    def ddim_reverse_diffusion(self, 
+                               x_t: torch.Tensor,
+                               epsilon_hat: torch.Tensor,
+                               t: torch.Tensor,
+                               s: torch.Tensor,
+                               eta: float = 0.0,
+                               device: str = 'cpu'):
+        """
+        Returns the predicted samples (x_t_minus_one)
+        """
+        sqrt_alpha_bars_t = self.sqrt_alpha_bars[t - 1][:, None, None, None].to(device)
+        sqrt_one_minus_alpha_bars_t = self.sqrt_one_minus_alpha_bars[t - 1][:, None, None, None].to(device)
+
+        x_0_hat = (x_t - sqrt_one_minus_alpha_bars_t * epsilon_hat) / sqrt_alpha_bars_t
+
+        if s[0].item() == 0:
+            return x_0_hat.to(device)
+
+        sqrt_alpha_bars_s = self.sqrt_alpha_bars[s - 1][:, None, None, None].to(device)
+        sqrt_one_minus_alpha_bars_s = self.sqrt_one_minus_alpha_bars[s - 1][:, None, None, None].to(device)
+        
+        x_s = sqrt_alpha_bars_s * x_0_hat + sqrt_one_minus_alpha_bars_s * epsilon_hat
+
+        return x_s.to(device)
+
+    @torch.no_grad()
+    def sample_ddim(self, 
+               model: nn.Module,
+               conditioner: model.Conditioner,
+               labels: torch.Tensor = None,
+               guidance_scale: float = 7.0,
+               num_samples: int = 1,
+               sampling_steps: int = 100,
+               device: str = 'cpu',
+               image_shape=None):
+        
+        assert labels is None or labels.shape == (num_samples,), "Labels must be None or of length num_samples"
+        assert self.T % sampling_steps == 0, "Sampling steps must be a divisor of the number of timesteps"
+
+        model.to(device).eval()
+        conditioner.to(device).eval()
+        if image_shape is None:
+            image_shape = (3, 32, 32)
+        c, h, w = image_shape
+
+        #initialize with pure noise
+        x_t = torch.randn(num_samples, c, h, w, device=device)
+
+        timesteps = torch.linspace(self.T, 0, sampling_steps + 1, device=device, dtype=torch.int64)
+
+        for i in tqdm(range(len(timesteps) - 1), desc="Sampling", unit="timestep", dynamic_ncols=True):
+            t = torch.full((num_samples,), timesteps[i], device=device, dtype=torch.int64)
+            s = torch.full((num_samples,), timesteps[i + 1], device=device, dtype=torch.int64)
+            
+            if (labels is None) or guidance_scale == 0.0:
+                #Unconditional
+                cond_u = conditioner.get_condition_vector(t)
+                eps_hat = model(x_t, cond_u)
+
+            elif guidance_scale == 1.0:
+                #Conditional without any guidance 
+                cond_c = conditioner.get_condition_vector(t, labels)
+                eps_hat = model(x_t, cond_c)
+            
+            else:
+                #Conditional with guidance 
+                cond_u = conditioner.get_condition_vector(t)
+                cond_c = conditioner.get_condition_vector(t, labels)
+                
+                x_in = torch.cat([x_t, x_t], dim=0)
+                cond_in = torch.cat([cond_u, cond_c], dim=0)
+                eps_u, eps_c = model(x_in, cond_in).chunk(2, dim=0)
+                eps_hat = eps_u + guidance_scale * (eps_c - eps_u)
+
+            #reverse diffusion (can be any sampling method)
+            x_t = self.ddim_reverse_diffusion(x_t, eps_hat, t, s, device=device)
+
+        return x_t
+
     #TODO: Need to update the evaluate method to factor in the conditioner
     @torch.no_grad()
     def evaluate(self,
