@@ -72,7 +72,7 @@ def main():
         val_loss = None
         if epoch % sample_every == 0:
             # val_loss = diffusion_model.evaluate(ema.ema_model, test_loader, device=device)
-            out = diffusion_model.sample(ema.ema_model, conditioner, num_samples=16, device=device, image_shape=(3, 64, 64))
+            out = diffusion_model.sample_ddim(ema.ema_model, conditioner, num_samples=16, device=device, image_shape=(3, 64, 64))
             utils.save_images(out, ckpt_dir / "samples" / f"samples_epoch_{epoch}.png", show=False)
 
         if epoch % save_every == 0 or epoch == num_epochs - 1:

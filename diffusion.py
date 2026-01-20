@@ -140,7 +140,7 @@ class Image_Diffusion(nn.Module):
         return x_t_minus_one.to(device)
 
     @torch.no_grad()
-    def sample(self, 
+    def sample_ddpm(self, 
                model: nn.Module,
                conditioner: model.Conditioner,
                labels: torch.Tensor = None,
